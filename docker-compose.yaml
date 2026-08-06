@@ -156,7 +156,9 @@ services:
 
   # ─── PRACTITIONER FRONTEND (Angular PWA) ───────────
   practitioner:
-    image: docker.io/iabsis/hcw6-practitioner:6.0.0-beta.37
+    build:
+      context: .
+      dockerfile: Dockerfile.practitioner
     restart: always
     environment:
       - BACKEND_URL=http://api:8000

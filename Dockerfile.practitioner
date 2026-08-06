@@ -1,0 +1,20 @@
+# Build HCW practitioner from ThomasVuNguyen/hcw fork (includes timezone fix)
+FROM node:22 AS builder
+WORKDIR /usr/src/app
+
+# Clone only the practitioner directory from the fork
+RUN apt-get update && apt-get install -y git && \
+    git clone --depth 1 https://github.com/ThomasVuNguyen/hcw.git /tmp/hcw && \
+    cp -r /tmp/hcw/practitioner/* . && \
+    rm -rf /tmp/hcw
+
+RUN yarn install
+RUN npm run build
+
+FROM docker.io/nginxinc/nginx-unprivileged:1.28-bookworm AS practitioner
+RUN mkdir /etc/nginx/ssl/ && openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/ssl-cert-snakeoil.key \
+    -out /etc/nginx/ssl/ssl-cert-snakeoil.pem \
+    -subj "/C=US/ST=California/L=San Francisco/O=BeeNex/OU=IT/CN=telehealth.beenex.org"
+COPY --from=builder /usr/src/app/dist/practitioner/browser/ /usr/share/nginx/html/
+COPY --from=builder /usr/src/app/nginx /etc/nginx/templates/default.conf.template
