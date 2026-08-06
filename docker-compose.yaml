@@ -29,7 +29,7 @@ services:
 
   # ─── HCW BACKEND (Django API + Daphne ASGI) ────────
   api:
-    image: docker.io/iabsis/hcw6-backend:latest
+    image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
     restart: always
     environment:
       - DEBUG=False
@@ -50,7 +50,7 @@ services:
 
   # ─── ADMIN (Nginx serving Django admin static + API proxy) ──
   admin:
-    image: docker.io/iabsis/hcw6-admin:latest
+    image: docker.io/iabsis/hcw6-admin:6.0.0-beta.37
     restart: always
     environment:
       - BACKEND_URL=http://api:8000
@@ -60,7 +60,7 @@ services:
   # ─── CELERY WORKER (async tasks: emails, SMS, recordings) ──
   celery:
     entrypoint: celery -A core.celery worker --loglevel=info
-    image: docker.io/iabsis/hcw6-backend:latest
+    image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
     restart: always
     environment:
       - DJANGOSECRET_KEY=${DJANGO_SECRET_KEY:-r4trf8rk6qbfsupersecret2026telehealth}
@@ -78,7 +78,7 @@ services:
   # ─── CELERY BEAT (scheduler: reminders, cleanup) ───
   scheduler:
     entrypoint: celery -A core beat --loglevel=info
-    image: docker.io/iabsis/hcw6-backend:latest
+    image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
     restart: always
     environment:
       - DJANGOSECRET_KEY=${DJANGO_SECRET_KEY:-r4trf8rk6qbfsupersecret2026telehealth}
@@ -95,7 +95,7 @@ services:
 
   # ─── PRACTITIONER FRONTEND (Angular PWA) ───────────
   practitioner:
-    image: docker.io/iabsis/hcw6-practitioner:latest
+    image: docker.io/iabsis/hcw6-practitioner:6.0.0-beta.37
     restart: always
     environment:
       - BACKEND_URL=http://api:8000
@@ -104,7 +104,7 @@ services:
 
   # ─── PATIENT FRONTEND (Ionic Angular PWA) ──────────
   patient:
-    image: docker.io/iabsis/hcw6-patient:latest
+    image: docker.io/iabsis/hcw6-patient:6.0.0-beta.37
     restart: always
     environment:
       - BACKEND_URL=http://api:8000
