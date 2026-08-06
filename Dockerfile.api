@@ -1,0 +1,13 @@
+FROM docker.io/iabsis/hcw6-backend:6.0.0-beta.37
+
+# Remove nginx's docker-entrypoint that Coolify refuses to override
+RUN rm -f /docker-entrypoint.sh && \
+    rm -rf /docker-entrypoint.d/ && \
+    echo '#!/bin/sh' > /docker-entrypoint.sh && \
+    echo 'exec "$@"' >> /docker-entrypoint.sh && \
+    chmod +x /docker-entrypoint.sh
+
+COPY init_tenants.py /app/init_tenants.py
+
+ENTRYPOINT ["sh", "-c"]
+CMD ["python manage.py migrate && python init_tenants.py && python manage.py tenant_command loaddata initial/TestData.json -s demo || true && exec daphne -b 0.0.0.0 -p 8000 core.asgi:application"]

@@ -28,17 +28,11 @@ services:
       retries: 5
 
   # ─── HCW BACKEND (Django API + Daphne ASGI) ────────
+  # Built from Dockerfile.api to strip nginx entrypoint
   api:
-    image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
-    volumes:
-      - ./init_tenants.py:/app/init_tenants.py:ro
-    entrypoint: ["sh", "-c"]
-    command: >
-      echo 'Running migrations...' &&
-      python manage.py migrate &&
-      python init_tenants.py &&
-      python manage.py tenant_command loaddata initial/TestData.json -s demo || true &&
-      exec daphne -b 0.0.0.0 -p 8000 core.asgi:application
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     restart: always
     environment:
       - DEBUG=False
@@ -68,9 +62,10 @@ services:
 
   # ─── CELERY WORKER (async tasks: emails, SMS, recordings) ──
   celery:
-    entrypoint: ["sh", "-c"]
-    command: "celery -A core.celery worker --loglevel=info"
-    image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: ["celery -A core.celery worker --loglevel=info"]
     restart: always
     environment:
       - DJANGOSECRET_KEY=${DJANGO_SECRET_KEY:-r4trf8rk6qbfsupersecret2026telehealth}
@@ -87,9 +82,10 @@ services:
 
   # ─── CELERY BEAT (scheduler: reminders, cleanup) ───
   scheduler:
-    entrypoint: ["sh", "-c"]
-    command: "celery -A core beat --loglevel=info"
-    image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: ["celery -A core beat --loglevel=info"]
     restart: always
     environment:
       - DJANGOSECRET_KEY=${DJANGO_SECRET_KEY:-r4trf8rk6qbfsupersecret2026telehealth}
