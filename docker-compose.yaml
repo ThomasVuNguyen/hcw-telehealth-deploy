@@ -28,8 +28,10 @@ services:
       retries: 5
 
   # ─── DB MIGRATIONS (run-once init container) ────────
+  # Uses the api image (python-based), NOT the admin image (nginx-based)
   migrate:
     image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
+    entrypoint: []
     command: >
       sh -c "
         echo 'Running migrations...';
@@ -54,8 +56,12 @@ services:
     restart: "no"
 
   # ─── HCW BACKEND (Django API + Daphne ASGI) ────────
+  # The hcw6-backend image's default CMD is daphne, but entrypoint may be nginx.
+  # We explicitly set entrypoint + command to ensure Daphne runs.
   api:
     image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
+    entrypoint: []
+    command: ["daphne", "-b", "0.0.0.0", "-p", "8000", "core.asgi:application"]
     restart: always
     environment:
       - DEBUG=False
@@ -87,7 +93,8 @@ services:
 
   # ─── CELERY WORKER (async tasks: emails, SMS, recordings) ──
   celery:
-    entrypoint: celery -A core.celery worker --loglevel=info
+    entrypoint: []
+    command: ["celery", "-A", "core.celery", "worker", "--loglevel=info"]
     image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
     restart: always
     environment:
@@ -98,6 +105,8 @@ services:
       - DATABASE_USER=hcw
       - DATABASE_PASSWORD=${DB_PASSWORD:-hcw2026secure}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       db:
@@ -105,7 +114,8 @@ services:
 
   # ─── CELERY BEAT (scheduler: reminders, cleanup) ───
   scheduler:
-    entrypoint: celery -A core beat --loglevel=info
+    entrypoint: []
+    command: ["celery", "-A", "core", "beat", "--loglevel=info"]
     image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
     restart: always
     environment:
@@ -116,6 +126,8 @@ services:
       - DATABASE_USER=hcw
       - DATABASE_PASSWORD=${DB_PASSWORD:-hcw2026secure}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       db:
