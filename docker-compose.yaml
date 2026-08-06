@@ -83,9 +83,6 @@ services:
       - BACKEND_URL=http://api:8000
     depends_on:
       - api
-    networks:
-      - default
-      - coolify
 
   # ─── CELERY WORKER (async tasks: emails, SMS, recordings) ──
   celery:
@@ -152,9 +149,6 @@ services:
       - BACKEND_URL=http://api:8000
     depends_on:
       - api
-    networks:
-      - default
-      - coolify
 
   # ─── LIVEKIT (WebRTC media server) ─────────────────
   livekit:
@@ -175,7 +169,3 @@ services:
 volumes:
   hcw_postgres_data:
   hcw_redis_data:
-
-networks:
-  coolify:
-    external: true
