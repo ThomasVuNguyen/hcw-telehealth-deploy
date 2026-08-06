@@ -34,7 +34,7 @@ services:
     environment:
       - DEBUG=False
       - ALLOWED_HOSTS=*
-      - CSRF_TRUSTED_ORIGINS=https://telehealth.beenex.org,https://api.telehealth.beenex.org
+      - CSRF_TRUSTED_ORIGINS=https://telehealth.beenex.org
       - DJANGOSECRET_KEY=${DJANGO_SECRET_KEY:-r4trf8rk6qbfsupersecret2026telehealth}
       - REDIS_HOST=redis
       - DATABASE_HOST=db
@@ -101,6 +101,16 @@ services:
       - BACKEND_URL=http://api:8000
     depends_on:
       - api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.practitioner.rule=Host(`telehealth.beenex.org`)"
+      - "traefik.http.routers.practitioner.entrypoints=https"
+      - "traefik.http.routers.practitioner.tls=true"
+      - "traefik.http.routers.practitioner.tls.certresolver=letsencrypt"
+      - "traefik.http.services.practitioner.loadbalancer.server.port=8080"
+      - "traefik.http.routers.practitioner-http.rule=Host(`telehealth.beenex.org`)"
+      - "traefik.http.routers.practitioner-http.entrypoints=http"
+      - "traefik.http.routers.practitioner-http.middlewares=redirect-to-https"
 
   # ─── PATIENT FRONTEND (Ionic Angular PWA) ──────────
   patient:
@@ -126,6 +136,16 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.livekit.rule=Host(`livekit.beenex.org`)"
+      - "traefik.http.routers.livekit.entrypoints=https"
+      - "traefik.http.routers.livekit.tls=true"
+      - "traefik.http.routers.livekit.tls.certresolver=letsencrypt"
+      - "traefik.http.services.livekit.loadbalancer.server.port=7880"
+      - "traefik.http.routers.livekit-http.rule=Host(`livekit.beenex.org`)"
+      - "traefik.http.routers.livekit-http.entrypoints=http"
+      - "traefik.http.routers.livekit-http.middlewares=redirect-to-https"
 
 volumes:
   hcw_postgres_data:
