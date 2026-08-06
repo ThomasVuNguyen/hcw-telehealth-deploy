@@ -1,0 +1,132 @@
+services:
+
+  # ─── DATABASE & CACHE ──────────────────────────────
+  db:
+    image: docker.io/postgres:15
+    volumes:
+      - hcw_postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=hcw
+      - POSTGRES_USER=hcw
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-hcw2026secure}
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hcw -d hcw"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: docker.io/redis:7
+    restart: always
+    volumes:
+      - hcw_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── HCW BACKEND (Django API + Daphne ASGI) ────────
+  api:
+    image: docker.io/iabsis/hcw6-backend:latest
+    restart: always
+    environment:
+      - DEBUG=False
+      - ALLOWED_HOSTS=*
+      - CSRF_TRUSTED_ORIGINS=https://telehealth.beenex.org,https://api.telehealth.beenex.org
+      - DJANGOSECRET_KEY=${DJANGO_SECRET_KEY:-r4trf8rk6qbfsupersecret2026telehealth}
+      - REDIS_HOST=redis
+      - DATABASE_HOST=db
+      - DATABASE_NAME=hcw
+      - DATABASE_USER=hcw
+      - DATABASE_PASSWORD=${DB_PASSWORD:-hcw2026secure}
+      - DEFAULT_FROM_EMAIL=${FROM_EMAIL:-noreply@beenex.org}
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+  # ─── ADMIN (Nginx serving Django admin static + API proxy) ──
+  admin:
+    image: docker.io/iabsis/hcw6-admin:latest
+    restart: always
+    environment:
+      - BACKEND_URL=http://api:8000
+    depends_on:
+      - api
+
+  # ─── CELERY WORKER (async tasks: emails, SMS, recordings) ──
+  celery:
+    entrypoint: celery -A core.celery worker --loglevel=info
+    image: docker.io/iabsis/hcw6-backend:latest
+    restart: always
+    environment:
+      - DJANGOSECRET_KEY=${DJANGO_SECRET_KEY:-r4trf8rk6qbfsupersecret2026telehealth}
+      - REDIS_HOST=redis
+      - DATABASE_HOST=db
+      - DATABASE_NAME=hcw
+      - DATABASE_USER=hcw
+      - DATABASE_PASSWORD=${DB_PASSWORD:-hcw2026secure}
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+  # ─── CELERY BEAT (scheduler: reminders, cleanup) ───
+  scheduler:
+    entrypoint: celery -A core beat --loglevel=info
+    image: docker.io/iabsis/hcw6-backend:latest
+    restart: always
+    environment:
+      - DJANGOSECRET_KEY=${DJANGO_SECRET_KEY:-r4trf8rk6qbfsupersecret2026telehealth}
+      - REDIS_HOST=redis
+      - DATABASE_HOST=db
+      - DATABASE_NAME=hcw
+      - DATABASE_USER=hcw
+      - DATABASE_PASSWORD=${DB_PASSWORD:-hcw2026secure}
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+  # ─── PRACTITIONER FRONTEND (Angular PWA) ───────────
+  practitioner:
+    image: docker.io/iabsis/hcw6-practitioner:latest
+    restart: always
+    environment:
+      - BACKEND_URL=http://api:8000
+    depends_on:
+      - api
+
+  # ─── PATIENT FRONTEND (Ionic Angular PWA) ──────────
+  patient:
+    image: docker.io/iabsis/hcw6-patient:latest
+    restart: always
+    environment:
+      - BACKEND_URL=http://api:8000
+    depends_on:
+      - api
+
+  # ─── LIVEKIT (WebRTC media server) ─────────────────
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: always
+    command: >
+      --config /etc/livekit.yaml
+      --node-ip ${LIVEKIT_NODE_IP:-0.0.0.0}
+    ports:
+      - "7881:7881"
+      - "50000-50100:50000-50100/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  hcw_postgres_data:
+  hcw_redis_data:
