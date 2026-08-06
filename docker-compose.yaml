@@ -27,6 +27,32 @@ services:
       timeout: 3s
       retries: 5
 
+  # ─── DB MIGRATIONS (run-once init container) ────────
+  migrate:
+    image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
+    command: >
+      sh -c "
+        echo 'Running migrations...';
+        python manage.py migrate;
+        echo 'Loading test data...';
+        python manage.py loaddata initial/TestData.json || true;
+        echo 'Migration completed successfully';
+      "
+    environment:
+      - ALLOWED_HOSTS=*
+      - DJANGOSECRET_KEY=${DJANGO_SECRET_KEY:-r4trf8rk6qbfsupersecret2026telehealth}
+      - REDIS_HOST=redis
+      - DATABASE_HOST=db
+      - DATABASE_NAME=hcw
+      - DATABASE_USER=hcw
+      - DATABASE_PASSWORD=${DB_PASSWORD:-hcw2026secure}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+
   # ─── HCW BACKEND (Django API + Daphne ASGI) ────────
   api:
     image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
@@ -43,6 +69,8 @@ services:
       - DATABASE_PASSWORD=${DB_PASSWORD:-hcw2026secure}
       - DEFAULT_FROM_EMAIL=${FROM_EMAIL:-noreply@beenex.org}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       db:
