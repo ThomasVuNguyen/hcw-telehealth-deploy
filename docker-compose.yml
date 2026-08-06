@@ -29,49 +29,9 @@ services:
 
   # ─── HCW BACKEND (Django API + Daphne ASGI) ────────
   api:
-    image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        set -e
-        echo "Running migrations..."
-        cd /app
-        python manage.py migrate --noinput
-        echo "Initializing tenants..."
-        python -c "
-        import django; django.setup()
-        from tenants.models import Tenant, Domain
-        from django_tenants.utils import tenant_context
-        from mediaserver.models import Server
-        pub, _ = Tenant.objects.get_or_create(schema_name='public', defaults={'name': 'Public'})
-        Domain.objects.get_or_create(domain='public.local', defaults={'tenant': pub, 'is_primary': True})
-        demo, _ = Tenant.objects.get_or_create(schema_name='demo', defaults={'name': 'Demo Tenant'})
-        Domain.objects.get_or_create(domain='telehealth.beenex.org', defaults={'tenant': demo, 'is_primary': True})
-        Domain.objects.get_or_create(domain='localhost', defaults={'tenant': demo, 'is_primary': False})
-        Domain.objects.get_or_create(domain='patient.beenex.org', defaults={'tenant': demo, 'is_primary': False})
-        Domain.objects.get_or_create(domain='admin-telehealth.beenex.org', defaults={'tenant': demo, 'is_primary': False})
-        with tenant_context(demo):
-            srv, created = Server.objects.get_or_create(
-                url='https://livekit.beenex.org',
-                defaults={
-                    'api_token': 'devkey',
-                    'api_secret': 'secret',
-                    'type': 'livekit',
-                    'is_active': True,
-                    'max_session_number': 10,
-                }
-            )
-            if not created and (srv.api_token != 'devkey' or srv.api_secret != 'secret' or not srv.is_active):
-                srv.api_token = 'devkey'
-                srv.api_secret = 'secret'
-                srv.is_active = True
-                srv.save()
-        print('Tenant and Media Server initialization complete.')
-        "
-        echo "Loading test data..."
-        python manage.py tenant_command loaddata initial/TestData.json -s demo || echo "Test data already loaded or skipped"
-        echo "Starting Daphne ASGI server on port 8000..."
-        exec daphne -b 0.0.0.0 -p 8000 core.asgi:application
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     restart: always
     environment:
       - DEBUG=False
@@ -102,12 +62,10 @@ services:
 
   # ─── CELERY WORKER (async tasks: emails, SMS, recordings) ──
   celery:
-    image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        cd /app
-        exec celery -A core.celery worker --loglevel=info
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: ["celery -A core.celery worker --loglevel=info"]
     restart: always
     environment:
       - DJANGO_SETTINGS_MODULE=core.settings
@@ -125,12 +83,10 @@ services:
 
   # ─── CELERY BEAT (scheduler: reminders, cleanup) ───
   scheduler:
-    image: docker.io/iabsis/hcw6-backend:6.0.0-beta.37
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        cd /app
-        exec celery -A core beat --loglevel=info
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: ["celery -A core beat --loglevel=info"]
     restart: always
     environment:
       - DJANGO_SETTINGS_MODULE=core.settings
