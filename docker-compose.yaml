@@ -41,6 +41,8 @@ services:
         python -c "
         import django; django.setup()
         from tenants.models import Tenant, Domain
+        from django_tenants.utils import tenant_context
+        from mediaserver.models import Server
         pub, _ = Tenant.objects.get_or_create(schema_name='public', defaults={'name': 'Public'})
         Domain.objects.get_or_create(domain='public.local', defaults={'tenant': pub, 'is_primary': True})
         demo, _ = Tenant.objects.get_or_create(schema_name='demo', defaults={'name': 'Demo Tenant'})
@@ -48,7 +50,23 @@ services:
         Domain.objects.get_or_create(domain='localhost', defaults={'tenant': demo, 'is_primary': False})
         Domain.objects.get_or_create(domain='patient.beenex.org', defaults={'tenant': demo, 'is_primary': False})
         Domain.objects.get_or_create(domain='admin-telehealth.beenex.org', defaults={'tenant': demo, 'is_primary': False})
-        print('Tenant initialization complete.')
+        with tenant_context(demo):
+            srv, created = Server.objects.get_or_create(
+                url='https://livekit.beenex.org',
+                defaults={
+                    'api_token': 'devkey',
+                    'api_secret': 'secret',
+                    'type': 'livekit',
+                    'is_active': True,
+                    'max_session_number': 10,
+                }
+            )
+            if not created and (srv.api_token != 'devkey' or srv.api_secret != 'secret' or not srv.is_active):
+                srv.api_token = 'devkey'
+                srv.api_secret = 'secret'
+                srv.is_active = True
+                srv.save()
+        print('Tenant and Media Server initialization complete.')
         "
         echo "Loading test data..."
         python manage.py tenant_command loaddata initial/TestData.json -s demo || echo "Test data already loaded or skipped"
@@ -58,7 +76,7 @@ services:
     environment:
       - DEBUG=False
       - ALLOWED_HOSTS=*
-      - CSRF_TRUSTED_ORIGINS=https://telehealth.beenex.org,https://patient.beenex.org,https://admin-telehealth.beenex.org
+      - CSRF_TRUSTED_ORIGINS=https://telehealth.beenex.org
       - DJANGO_SETTINGS_MODULE=core.settings
       - DJANGOSECRET_KEY=${DJANGO_SECRET_KEY:-r4trf8rk6qbfsupersecret2026telehealth}
       - REDIS_HOST=redis
@@ -77,11 +95,6 @@ services:
   admin:
     image: docker.io/iabsis/hcw6-admin:6.0.0-beta.37
     restart: always
-    expose:
-      - "8080"
-    labels:
-      - traefik.http.routers.http-0-ilbhj81z7lw8iylprymulyhe-admin.service=http-0-ilbhj81z7lw8iylprymulyhe-admin
-      - traefik.http.services.http-0-ilbhj81z7lw8iylprymulyhe-admin.loadbalancer.server.port=8080
     environment:
       - BACKEND_URL=http://api:8000
     depends_on:
@@ -146,11 +159,6 @@ services:
   patient:
     image: docker.io/iabsis/hcw6-patient:6.0.0-beta.37
     restart: always
-    expose:
-      - "8081"
-    labels:
-      - traefik.http.routers.http-0-ilbhj81z7lw8iylprymulyhe-patient.service=http-0-ilbhj81z7lw8iylprymulyhe-patient
-      - traefik.http.services.http-0-ilbhj81z7lw8iylprymulyhe-patient.loadbalancer.server.port=8081
     environment:
       - BACKEND_URL=http://api:8000
     depends_on:
@@ -163,7 +171,10 @@ services:
     command: >
       --config /etc/livekit.yaml
       --node-ip ${LIVEKIT_NODE_IP:-0.0.0.0}
+    expose:
+      - "7880"
     ports:
+      - "7880:7880"
       - "7881:7881"
       - "50000-50100:50000-50100/udp"
     volumes:
