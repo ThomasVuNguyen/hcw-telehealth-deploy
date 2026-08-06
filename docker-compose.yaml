@@ -55,25 +55,16 @@ services:
         Domain.objects.get_or_create(domain='admin-telehealth.beenex.org', defaults={'tenant': demo, 'is_primary': False})
 
         with tenant_context(demo):
-            srv, created = Server.objects.get_or_create(
+            Server.objects.all().delete()
+            Server.objects.create(
                 url='http://livekit:7880',
-                defaults={
-                    'api_token': 'devkey',
-                    'api_secret': 'secret',
-                    'type': 'livekit',
-                    'is_active': True,
-                    'max_session_number': 10,
-                }
+                api_token='devkey',
+                api_secret='secret',
+                type='livekit',
+                is_active=True,
+                max_session_number=10,
             )
-            if not created and (srv.api_token != 'devkey' or srv.api_secret != 'secret' or not srv.is_active or srv.url != 'http://livekit:7880'):
-                srv.url = 'http://livekit:7880'
-                srv.api_token = 'devkey'
-                srv.api_secret = 'secret'
-                srv.is_active = True
-                srv.save()
-                print('Updated LiveKit server record.')
-            elif created:
-                print('Created LiveKit server record.')
+            print('Created fresh LiveKit server record (http://livekit:7880).')
         print('Tenant domain and LiveKit initialization complete.')
         "
         echo "Loading test data..."
