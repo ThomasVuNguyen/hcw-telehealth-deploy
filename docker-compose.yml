@@ -34,13 +34,11 @@ services:
       - ./init_tenants.py:/app/init_tenants.py:ro
     entrypoint: ["sh", "-c"]
     command: >
-      "
-        echo 'Running migrations...';
-        python manage.py migrate;
-        python init_tenants.py;
-        python manage.py tenant_command loaddata initial/TestData.json -s demo || true;
-        exec daphne -b 0.0.0.0 -p 8000 core.asgi:application
-      "
+      echo 'Running migrations...' &&
+      python manage.py migrate &&
+      python init_tenants.py &&
+      python manage.py tenant_command loaddata initial/TestData.json -s demo || true &&
+      exec daphne -b 0.0.0.0 -p 8000 core.asgi:application
     restart: always
     environment:
       - DEBUG=False
