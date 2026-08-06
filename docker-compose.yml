@@ -173,6 +173,8 @@ services:
       --node-ip ${LIVEKIT_NODE_IP:-0.0.0.0}
     expose:
       - "7880"
+    labels:
+      - traefik.http.services.http-0-ilbhj81z7lw8iylprymulyhe-livekit.loadbalancer.server.port=7880
     ports:
       - "7880:7880"
       - "7881:7881"
