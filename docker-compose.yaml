@@ -79,6 +79,9 @@ services:
     restart: always
     expose:
       - "80"
+    labels:
+      - traefik.http.routers.http-0-ilbhj81z7lw8iylprymulyhe-admin.service=http-0-ilbhj81z7lw8iylprymulyhe-admin
+      - traefik.http.services.http-0-ilbhj81z7lw8iylprymulyhe-admin.loadbalancer.server.port=80
     environment:
       - BACKEND_URL=http://api:8000
     depends_on:
@@ -145,6 +148,9 @@ services:
     restart: always
     expose:
       - "80"
+    labels:
+      - traefik.http.routers.http-0-ilbhj81z7lw8iylprymulyhe-patient.service=http-0-ilbhj81z7lw8iylprymulyhe-patient
+      - traefik.http.services.http-0-ilbhj81z7lw8iylprymulyhe-patient.loadbalancer.server.port=80
     environment:
       - BACKEND_URL=http://api:8000
     depends_on:
